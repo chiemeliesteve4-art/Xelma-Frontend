@@ -197,6 +197,15 @@ describe('StatsCard', () => {
         'href',
         expect.stringContaining('0123456789abcdef'),
       );
+
+      const { toast } = await import('sonner');
+      expect(toast.success).toHaveBeenCalledWith(
+        'Rewards Claimed!',
+        expect.objectContaining({
+          description: 'Tx 012345…abcdef',
+          action: expect.objectContaining({ label: 'View on StellarExpert' }),
+        }),
+      );
     });
 
     it('prevents double-submit while a claim is in-flight', async () => {
