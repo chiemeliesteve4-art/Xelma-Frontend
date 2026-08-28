@@ -1,8 +1,10 @@
 import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { ReactElement } from 'react';
 import StatsCard from './StatsCard';
 import { useWalletStore } from '../store/useWalletStore';
 import { claim_winnings } from '../lib/xelma-contract';
+import { txUrl } from '../lib/explorer';
 import type { MockUserStats } from '../types';
 
 // Keep the real selectors (selectIsWalletConnected derives from state) and only
@@ -174,7 +176,7 @@ describe('StatsCard', () => {
   });
 
   describe('claim flow status machine', () => {
-    it('shows the shared status timeline and a truncated tx hash on success', async () => {
+    it('shows a non-blocking success toast with the truncated tx hash and explorer link', async () => {
       setWalletState({ status: 'connected', publicKey: 'GTEST' });
       vi.mocked(claim_winnings).mockResolvedValue({
         txHash: '0123456789abcdef',
@@ -184,18 +186,20 @@ describe('StatsCard', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /claim rewards/i }));
 
+      const { toast } = await import('sonner');
       await waitFor(() => {
-        expect(screen.getByText('Preparing Claim...')).toBeInTheDocument();
+        expect(toast.success).toHaveBeenCalled();
       });
-      expect(screen.queryByRole('button', { name: /claim rewards/i })).not.toBeInTheDocument();
 
-      await waitFor(() => {
-        expect(screen.getByText('Rewards Claimed!')).toBeInTheDocument();
-      });
-      expect(screen.getByText('Tx: 012345…abcdef')).toBeInTheDocument();
+      // Success restores the claim button — the toast does not block the UI.
+      expect(screen.getByRole('button', { name: /claim rewards/i })).toBeInTheDocument();
+
+      const content = vi.mocked(toast.success).mock.calls[0][0];
+      render(content as ReactElement);
+      expect(screen.getByText('012345…abcdef')).toBeInTheDocument();
       expect(screen.getByRole('link', { name: /view on stellarexpert/i })).toHaveAttribute(
         'href',
-        expect.stringContaining('0123456789abcdef'),
+        txUrl('0123456789abcdef'),
       );
     });
 
@@ -220,7 +224,7 @@ describe('StatsCard', () => {
 
       resolveClaim({ txHash: 'abc', ledger: 1 });
       await waitFor(() => {
-        expect(screen.getByText('Rewards Claimed!')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /claim rewards/i })).toBeInTheDocument();
       });
       expect(claim_winnings).toHaveBeenCalledTimes(1);
     });

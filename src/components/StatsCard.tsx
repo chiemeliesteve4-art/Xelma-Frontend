@@ -1,12 +1,14 @@
 // ISSUE: Replace mock stats with live API call to backend /api/stats
 
+import { toast } from 'sonner';
 import type { MockUserStats } from '../types';
 import { useWalletStore, selectIsWalletConnected } from '../store/useWalletStore';
 import { claim_winnings } from '../lib/xelma-contract';
 import { formatVXLM } from '../lib/utils';
+import { txUrl } from '../lib/explorer';
 import RankProgressBar from './RankProgressBar';
 import PanelHeader from './ui/PanelHeader';
-import TxStatusTimeline, { useTxStatusMachine } from './TxStatusTimeline';
+import TxStatusTimeline, { useTxStatusMachine, formatTxHash } from './TxStatusTimeline';
 import MaskedBalance from './MaskedBalance';
 
 interface StatsCardProps {
@@ -33,10 +35,30 @@ export default function StatsCard({ stats, isLoading, error, onRetry }: StatsCar
 
     try {
       const result = await claim_winnings(publicKey, tx.updateStatus);
-      tx.succeed(result.txHash);
 
       // Refresh wallet balance/state
       await checkConnection();
+
+      // Restore the claim button (non-blocking) and surface the confirmed
+      // transaction via a toast with a truncated hash + network-aware
+      // StellarExpert link.
+      tx.reset();
+      toast.success(
+        <div className="text-sm">
+          <p className="font-semibold">Rewards claimed!</p>
+          <p className="mt-1 text-gray-400">
+            Tx: <code className="font-mono text-cyan-400">{formatTxHash(result.txHash)}</code>
+          </p>
+          <a
+            href={txUrl(result.txHash)}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-block text-cyan-400 underline underline-offset-2 hover:text-cyan-300"
+          >
+            View on StellarExpert
+          </a>
+        </div>,
+      );
     } catch (error) {
       console.error('Claim failed:', error);
       const msg = error instanceof Error ? error.message : 'Failed to claim rewards.';
@@ -165,8 +187,6 @@ export default function StatsCard({ stats, isLoading, error, onRetry }: StatsCar
             step={tx.step}
             txHash={tx.txHash}
             errorMessage={tx.errorMessage}
-            successTitle="Rewards Claimed!"
-            successMessage="Your pending winnings have been claimed on-chain."
             stepCopy={{
               preparing: 'Preparing Claim...',
               submitting: 'Submitting Claim to Network...',
