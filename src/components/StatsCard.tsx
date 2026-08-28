@@ -1,4 +1,4 @@
-// ISSUE: Replace mock stats with live API call to backend /api/stats
+// ISSUE: Replace mock stat with live API call to backend /api/stats
 
 import { toast } from 'sonner';
 import type { MockUserStats } from '../types';
